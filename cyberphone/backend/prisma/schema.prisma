@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  username      String    @unique
+  avatarUrl     String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  posts         Post[]
+  products      Product[]
+  sells         Order[]   @relation("SellerOrders")
+  purchases     Order[]   @relation("BuyerOrders")
+  affiliateCode String?   @unique
+  walletBalance Int       @default(0) // in Kz (integer)
+  followers     Follow[]  @relation("Followers")
+  following     Follow[]  @relation("Following")
+  notifications Notification[]
+  affiliateSales AffiliateSale[]
+}
+
+model Post {
+  id         String    @id @default(uuid())
+  author     User      @relation(fields: [authorId], references: [id])
+  authorId   String
+  content    String?
+  createdAt  DateTime  @default(now())
+  medias     Media[]
+  likes      Int       @default(0)
+  comments   Comment[]
+  isShort    Boolean   @default(false)
+}
+
+model Media {
+  id           String   @id @default(uuid())
+  url          String
+  type         String   // image, video, image/filtered, etc.
+  post         Post?    @relation(fields: [postId], references: [id])
+  postId       String?
+  uploadedAt   DateTime @default(now())
+  size         Int
+  thumbnailUrl String?  // generated thumbnail URL (image)
+  transcodedUrl String? // generated transcoded video URL (mp4/h264)
+  processingStatus String? // pending | processing | done | failed
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  post      Post     @relation(fields: [postId], references: [id])
+  postId    String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Live {
+  id          String   @id @default(uuid())
+  host        User     @relation(fields: [hostId], references: [id])
+  hostId      String
+  title       String
+  description String?
+  price       Int      @default(0) // in Kz, 0=free
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime @default(now())
+  viewers     Int      @default(0)
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  seller    User     @relation(fields: [sellerId], references: [id])
+  sellerId  String
+  title     String
+  description String?
+  price     Int
+  images    Media[]
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Order {
+  id         String   @id @default(uuid())
+  product    Product? @relation(fields: [productId], references: [id])
+  productId  String?
+  buyer      User     @relation("BuyerOrders", fields: [buyerId], references: [id])
+  buyerId    String
+  seller     User     @relation("SellerOrders", fields: [sellerId], references: [id])
+  sellerId   String
+  amount     Int
+  createdAt  DateTime @default(now())
+  status     String   @default("pending") // pending, completed, cancelled
+  type       String   @default("product") // product, ticket, ai-filter, ad
+  metadata   Json?
+  affiliateSale AffiliateSale?
+}
+
+model Ad {
+  id          String  @id @default(uuid())
+  creator     User?   @relation(fields: [creatorId], references: [id])
+  creatorId   String?
+  title       String
+  imageUrl    String?
+  link        String?
+  pricePerDay Int
+  startAt     DateTime?
+  endAt       DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model Follow {
+  id         String @id @default(uuid())
+  follower   User   @relation("Following", fields: [followerId], references: [id])
+  followerId String
+  following  User   @relation("Followers", fields: [followingId], references: [id])
+  followingId String
+  createdAt  DateTime @default(now())
+
+  @@unique([followerId, followingId])
+}
+
+model Like {
+  id        String @id @default(uuid())
+  user      User   @relation(fields: [userId], references: [id])
+  userId    String
+  post      Post   @relation(fields: [postId], references: [id])
+  postId    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Notification {
+  id        String @id @default(uuid())
+  user      User   @relation(fields: [userId], references: [id])
+  userId    String
+  type      String
+  payload   Json
+  read      Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AffiliateSale {
+  id         String @id @default(uuid())
+  affiliate  User   @relation(fields: [affiliateId], references: [id])
+  affiliateId String
+  order      Order? @relation(fields: [orderId], references: [id])
+  orderId    String?
+  amount     Int
+  percent    Int
+  createdAt  DateTime @default(now())
+}
